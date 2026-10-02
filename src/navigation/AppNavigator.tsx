@@ -5,6 +5,7 @@ import { HomeScreen } from '../screens/HomeScreen';
 import { TrashScreen } from '../screens/TrashScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import { BottomTabBar, TabRoute } from '../components/BottomTabBar';
+import { useRegisterNotificationNavigation } from '../context/NotificationProvider';
 
 /**
  * Navegador principal de la aplicación.
@@ -13,6 +14,16 @@ import { BottomTabBar, TabRoute } from '../components/BottomTabBar';
 export const AppNavigator: React.FC = () => {
   const { colors } = useTheme();
   const [activeRoute, setActiveRoute] = useState<TabRoute>('home');
+
+  // Registrar navegación para notificaciones
+  const handleNavigateToTask = useCallback((taskId: string) => {
+    setActiveRoute('home');
+    // La HomeScreen debería manejar el taskId via props o contexto
+    // Por ahora solo cambiamos a la pestaña home
+    console.log('Navegar a tarea:', taskId);
+  }, []);
+
+  useRegisterNotificationNavigation(handleNavigateToTask);
 
   const handleRouteChange = useCallback((route: TabRoute) => {
     setActiveRoute(route);

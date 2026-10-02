@@ -10,12 +10,15 @@ import {
   Switch,
   Keyboard,
   Alert,
+  Linking,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { useTasks } from '../context/TaskContext';
 import { useSettings, AccentColor, SortOrder, ACCENT_COLORS, AccentColorConfig, ACCENT_COLOR_MAP } from '../context/SettingsContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNotificationContext } from '../context/NotificationContext';
 
 // Default settings para el reset local
 const DEFAULT_SETTINGS = {
@@ -31,6 +34,7 @@ const SettingsScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { settings, isReady, setUserName, setTimeFormat, setThemeMode, setAccentColor, setSortOrder, resetSettings } = useSettings();
   const { emptyTrash } = useTasks();
+  const { hasPermission, requestPermissions, setHasPermission } = useNotificationContext();
 
   // Estado local para inputs
   const [userNameInput, setUserNameInput] = useState(settings.userName);
@@ -485,6 +489,58 @@ const SettingsScreen: React.FC = () => {
                 </TouchableOpacity>
               );
             })}
+          </View>
+        </View>
+
+        {/* NOTIFICACIONES */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>
+              <Ionicons name="notifications-outline" size={20} color={colors.textPrimary} style={{ marginRight: 8 }} />
+              Notificaciones
+            </Text>
+          </View>
+          <View style={styles.sectionContent}>
+            <View style={styles.settingRow}>
+              <View>
+                <Text style={styles.settingLabel}>Notificaciones de recordatorio</Text>
+                <Text style={styles.settingSubLabel}>
+                  {hasPermission
+                    ? 'Activadas - Recibirás avisos en la bandeja del sistema'
+                    : 'Desactivadas - No recibirás avisos'}
+                </Text>
+              </View>
+              <Switch
+                value={hasPermission}
+                onValueChange={async (enabled) => {
+                  if (enabled) {
+                    const granted = await requestPermissions();
+                    setHasPermission(granted);
+                    if (!granted && Platform.OS === 'android') {
+                      Alert.alert(
+                        'Permisos necesarios',
+                        'Para recibir notificaciones, concede el permiso en la configuración de la app.',
+                        [
+                          { text: 'Cancelar', style: 'cancel' },
+                          { text: 'Abrir ajustes', onPress: () => Linking.openSettings() },
+                        ]
+                      );
+                    }
+                  } else {
+                    setHasPermission(false);
+                  }
+                }}
+                thumbColor={activeColor}
+                trackColor={{ false: '#E0E0E0', true: activeColor }}
+                testID="settings-notifications-switch"
+              />
+            </View>
+            {!hasPermission && (
+              <Text style={{ ...styles.settingSubLabel, marginTop: 8, color: colors.textSecondary }}>
+                Las notificaciones funcionan en segundo plano solo en development build (npx expo run:android).
+                En Expo Go solo aparecen con la app abierta.
+              </Text>
+            )}
           </View>
         </View>
 

@@ -4,7 +4,8 @@ import { LogBox } from 'react-native';
 import { ThemeProvider } from './src/context/ThemeContext';
 import { TaskProvider } from './src/context/TaskContext';
 import { SettingsProvider } from './src/context/SettingsContext';
-import { NotificationProvider } from './src/context/NotificationProvider';
+import { NotificationProvider, NotificationNavigationProvider } from './src/context/NotificationProvider';
+import { NotificationContextProvider } from './src/context/NotificationContext';
 import { AppNavigator } from './src/navigation';
 
 // Oculta todas las alertas y errores emergentes en la interfaz del cliente (Modo Presentación)
@@ -19,9 +20,13 @@ const App: React.FC = () => (
     <ThemeProvider>
       <SettingsProvider>
         <TaskProvider>
-          <NotificationProvider>
-            <AppNavigator />
-          </NotificationProvider>
+          <NotificationContextProvider>
+            <NotificationNavigationProvider>
+              <NotificationProvider>
+                <AppNavigator />
+              </NotificationProvider>
+            </NotificationNavigationProvider>
+          </NotificationContextProvider>
         </TaskProvider>
       </SettingsProvider>
     </ThemeProvider>

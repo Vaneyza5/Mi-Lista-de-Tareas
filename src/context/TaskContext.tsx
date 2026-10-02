@@ -14,8 +14,8 @@ import {
 } from '../types/task';
 import { STORAGE_KEYS, getStorageItem, setStorageItem } from '../utils/storage';
 import {
-  scheduleNotification,
-  cancelNotificationsForTask,
+  scheduleTaskNotification,
+  cancelTaskNotification,
 } from '../utils/notifications';
 
 /** Forma del contexto de tareas. */
@@ -69,9 +69,8 @@ export interface TaskProviderProps {
  * - Carga datos al montar.
  * - Persiste cambios tras cada mutación.
  * - Expone API CRUD completa con soft-delete (papelera).
- * 
- * NOTA: Notificaciones deshabilitadas para compatibilidad con Expo Go.
- * Para habilitar: descomentar imports y lógica de notificationService.
+ * - Notificaciones nativas: funcionan en background en development build / standalone.
+ *   En Expo Go: solo funcionan en foreground.
  * Requiere development build: npx expo run:android / npx expo run:ios
  */
 export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
@@ -153,10 +152,10 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         notificationId: undefined,
       };
 
-      // Programar notificación (híbrida: nativa si disponible, si no local)
-      const result = await scheduleNotification(newTask);
-      if (result) {
-        newTask.notificationId = result.id;
+      // Programar notificación (nativa - funciona en background en development build)
+      const notificationId = await scheduleTaskNotification(newTask);
+      if (notificationId) {
+        newTask.notificationId = notificationId;
       }
 
       setTasks((prev) => {
@@ -192,16 +191,16 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
 
       if (statusChangedToDone || movedToTrash) {
         if (task.notificationId) {
-          await cancelNotificationsForTask(id);
+          await cancelTaskNotification(task.notificationId);
         }
         finalNotificationId = undefined;
       } else if (restoredFromTrash || dateTimeChanged || statusChangedToActive) {
         if (task.notificationId) {
-          await cancelNotificationsForTask(id);
+          await cancelTaskNotification(task.notificationId);
         }
-        const result = await scheduleNotification(mergedTask);
-        if (result) {
-          finalNotificationId = result.id;
+        const notificationId = await scheduleTaskNotification(mergedTask);
+        if (notificationId) {
+          finalNotificationId = notificationId;
         }
       }
 
@@ -219,10 +218,13 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   /** Soft delete: mueve a papelera (inTrash = true). Cancela notificación. */
   const moveToTrash = useCallback(
     async (id: string): Promise<void> => {
-      await cancelNotificationsForTask(id);
+      const task = tasks.find((t) => t.id === id);
+      if (task?.notificationId) {
+        await cancelTaskNotification(task.notificationId);
+      }
       await updateTask(id, { inTrash: true });
     },
-    [updateTask],
+    [updateTask, tasks],
   );
 
   /** Restaura desde papelera (inTrash = false). Reprograma notificación. */
@@ -237,14 +239,17 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
   /** Hard delete: elimina permanentemente del estado y storage. Cancela notificación. */
   const permanentlyDeleteTask = useCallback(
     async (id: string): Promise<void> => {
-      await cancelNotificationsForTask(id);
+      const task = tasks.find((t) => t.id === id);
+      if (task?.notificationId) {
+        await cancelTaskNotification(task.notificationId);
+      }
       setTasks((prev) => {
         const next = prev.filter((t) => t.id !== id);
         persistTasks(next);
         return next;
       });
     },
-    [persistTasks],
+    [persistTasks, tasks],
   );
 
   /** Vacía la papelera eliminando definitivamente todas sus tareas. Cancela notificaciones. */
@@ -254,7 +259,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       // Cancelar notificaciones de todas las tareas en papelera
       trashTasks.forEach((task) => {
         if (task.notificationId) {
-          cancelNotificationsForTask(task.id);
+          cancelTaskNotification(task.notificationId);
         }
       });
       const next = prev.filter((t) => !t.inTrash);
