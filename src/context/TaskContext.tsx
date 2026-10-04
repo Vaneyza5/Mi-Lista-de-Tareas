@@ -131,17 +131,25 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
         notificationId: undefined,
       };
 
-      // Programar notificación (nativa - funciona en background en development build)
-      const notificationId = await scheduleTaskNotification(newTask);
-      if (notificationId) {
-        newTask.notificationId = notificationId;
-      }
-
+      // Guardar tarea INMEDIATAMENTE (no bloquear por notificación)
       setTasks((prev) => {
         const next = [...prev, newTask];
         persistTasks(next);
         return next;
       });
+
+      // Programar notificación EN BACKGROUND (fire-and-forget)
+      // Si falla o tarda, la tarea ya está guardada
+      scheduleTaskNotification(newTask).then((notificationId) => {
+        if (notificationId) {
+          setTasks((prev) =>
+            prev.map((t) => (t.id === newTask.id ? { ...t, notificationId } : t))
+          );
+        }
+      }).catch(() => {
+        // Silencioso: notificación falló pero tarea guardada
+      });
+
       return newTask;
     },
     [persistTasks],
@@ -171,30 +179,39 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       const statusChangedToActive = (allowedUpdates.estado === 'Pendiente' || allowedUpdates.estado === 'En curso') && 
                                       task.estado !== 'Pendiente' && task.estado !== 'En curso';
 
-      let finalNotificationId = task.notificationId;
-
-      if (statusChangedToDone || movedToTrash) {
+      // Cancelar notificación anterior si es necesario (rápido)
+      if (statusChangedToDone || movedToTrash || restoredFromTrash || reminderChanged || statusChangedToActive) {
         if (task.notificationId) {
-          await cancelTaskNotification(task.notificationId);
-        }
-        finalNotificationId = undefined;
-      } else if (restoredFromTrash || reminderChanged || statusChangedToActive) {
-        if (task.notificationId) {
-          await cancelTaskNotification(task.notificationId);
-        }
-        const notificationId = await scheduleTaskNotification(mergedTask);
-        if (notificationId) {
-          finalNotificationId = notificationId;
+          cancelTaskNotification(task.notificationId).catch(() => {});
         }
       }
 
-      // Actualizar estado con el nuevo notificationId
+      // Determinar notificationId inicial
+      let finalNotificationId = task.notificationId;
+      if (statusChangedToDone || movedToTrash) {
+        finalNotificationId = undefined;
+      }
+
+      // Actualizar estado INMEDIATAMENTE
       const taskWithNotification = { ...mergedTask, notificationId: finalNotificationId };
       setTasks((prev) => {
         const next = prev.map((t) => (t.id === id ? taskWithNotification : t));
         persistTasks(next);
         return next;
       });
+
+      // Reprogramar notificación EN BACKGROUND si hace falta
+      if (restoredFromTrash || reminderChanged || statusChangedToActive) {
+        scheduleTaskNotification(mergedTask).then((notificationId) => {
+          if (notificationId) {
+            setTasks((prev) =>
+              prev.map((t) => (t.id === id ? { ...t, notificationId } : t))
+            );
+          }
+        }).catch(() => {
+          // Silencioso
+        });
+      }
     },
     [persistTasks, tasks],
   );
