@@ -12,6 +12,7 @@ import {
   Alert,
   Linking,
   Platform,
+  AppState,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
@@ -20,25 +21,15 @@ import { useSettings, AccentColor, SortOrder, ACCENT_COLORS, AccentColorConfig, 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNotificationContext } from '../context/NotificationContext';
 
-// Default settings para el reset local
-const DEFAULT_SETTINGS = {
-  userName: 'Usuario',
-  timeFormat: '24h' as const,
-  themeMode: 'light' as const,
-  accentColor: 'turquesa' as const,
-  sortOrder: 'fecha' as const,
-};
-
 const SettingsScreen: React.FC = () => {
   const { mode, colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const { settings, isReady, setUserName, setTimeFormat, setThemeMode, setAccentColor, setSortOrder, resetSettings } = useSettings();
+  const { settings, isReady, setUserName, setTimeFormat, setThemeMode, setAccentColor, setSortOrder } = useSettings();
   const { emptyTrash } = useTasks();
-  const { hasPermission, requestPermissions, setHasPermission } = useNotificationContext();
+  const { hasPermission, requestPermissions, setHasPermission, syncPermissions } = useNotificationContext();
 
   // Estado local para inputs
   const [userNameInput, setUserNameInput] = useState(settings.userName);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   // Sincronizar input con settings al cargar
   useEffect(() => {
@@ -71,15 +62,16 @@ const SettingsScreen: React.FC = () => {
     setSortOrder(order);
   }, [setSortOrder]);
 
-  const handleResetSettings = useCallback(() => {
-    setShowResetConfirm(true);
-  }, []);
-
-  const confirmReset = useCallback(async () => {
-    await resetSettings();
-    setUserNameInput(DEFAULT_SETTINGS.userName);
-    setShowResetConfirm(false);
-  }, [resetSettings]);
+  // Sincronizar permisos reales cuando la app vuelve a primer plano
+  useEffect(() => {
+    const handleAppStateChange = (nextState: string) => {
+      if (nextState === 'active') {
+        syncPermissions();
+      }
+    };
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription.remove();
+  }, [syncPermissions]);
 
   if (!isReady) {
     return (
@@ -252,87 +244,12 @@ const SettingsScreen: React.FC = () => {
       fontWeight: '600',
       marginLeft: 8,
     },
-    resetButton: {
-      marginTop: 12,
-      paddingVertical: 12,
-      borderRadius: 10,
-      backgroundColor: 'transparent',
-      borderWidth: 1,
-      borderColor: colors.error,
-    },
-    resetButtonText: {
-      textAlign: 'center',
-      color: colors.error,
-      fontSize: 15,
-      fontWeight: '600',
-    },
     versionInfo: {
       textAlign: 'center',
       color: colors.textDisabled,
       fontSize: 12,
       marginTop: 24,
       paddingBottom: 16,
-    },
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.5)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: 24,
-    },
-    modalContent: {
-      backgroundColor: colors.surface,
-      borderRadius: 16,
-      padding: 24,
-      width: '100%',
-      maxWidth: 340,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3,
-      shadowRadius: 12,
-      elevation: 10,
-    },
-    modalTitle: {
-      fontSize: 20,
-      fontWeight: '700',
-      color: colors.textPrimary,
-      marginBottom: 12,
-      textAlign: 'center',
-    },
-    modalMessage: {
-      fontSize: 15,
-      color: colors.textSecondary,
-      textAlign: 'center',
-      marginBottom: 24,
-      lineHeight: 22,
-    },
-    modalActions: {
-      flexDirection: 'row',
-      gap: 12,
-    },
-    modalButton: {
-      flex: 1,
-      paddingVertical: 14,
-      borderRadius: 10,
-      alignItems: 'center',
-    },
-    modalButtonCancel: {
-      backgroundColor: colors.surfaceVariant,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    modalButtonConfirm: {
-      backgroundColor: colors.error,
-    },
-    modalButtonText: {
-      fontSize: 15,
-      fontWeight: '600',
-    },
-    modalButtonTextCancel: {
-      color: colors.textPrimary,
-    },
-    modalButtonTextConfirm: {
-      color: colors.textOnAccent,
     },
   });
 
@@ -568,49 +485,12 @@ const SettingsScreen: React.FC = () => {
               <Ionicons name="trash-outline" size={22} color={colors.textOnAccent} />
               <Text style={styles.dangerButtonText}>Vaciar papelera definitivamente</Text>
             </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.resetButton}
-              onPress={handleResetSettings}
-              testID="settings-reset"
-            >
-              <Text style={styles.resetButtonText}>Restablecer configuracion a valores por defecto</Text>
-            </TouchableOpacity>
           </View>
         </View>
 
         {/* INFO DE VERSION */}
         <Text style={styles.versionInfo}>Mi Lista de Tareas v1.0.0</Text>
       </ScrollView>
-
-      {/* MODAL DE CONFIRMACIÓN DE RESET */}
-      {showResetConfirm && (
-        <View style={styles.modalOverlay} testID="settings-reset-modal-overlay">
-          <View style={styles.modalContent} testID="settings-reset-modal">
-            <Text style={styles.modalTitle}>Restablecer configuracion</Text>
-            <Text style={styles.modalMessage}>
-              Estas seguro de que quieres restablecer toda la configuracion a sus valores por defecto?
-              Se perderan tu nombre, preferencias de tema, color de acento y criterio de ordenacion.
-            </Text>
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonCancel]}
-                onPress={() => setShowResetConfirm(false)}
-                testID="settings-reset-cancel"
-              >
-                <Text style={styles.modalButtonTextCancel}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonConfirm]}
-                onPress={confirmReset}
-                testID="settings-reset-confirm"
-              >
-                <Text style={styles.modalButtonTextConfirm}>Restablecer</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      )}
     </SafeAreaView>
   );
 };

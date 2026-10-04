@@ -89,9 +89,10 @@ export const scheduleTaskNotification = async (task: Task): Promise<string | nul
       return null;
     }
 
-    // Verificar permisos antes de programar
-    const hasPermission = await requestNotificationPermissions();
-    if (!hasPermission) {
+    // Verificar permisos YA concedidos (NO pedirlos aquí - eso bloquea la UI)
+    const { status } = await Notifications.getPermissionsAsync();
+    if (status !== 'granted') {
+      console.warn('Permisos de notificación no concedidos');
       return null;
     }
 
@@ -111,8 +112,8 @@ export const scheduleTaskNotification = async (task: Task): Promise<string | nul
     });
 
     return notificationId;
-  } catch {
-    // Error al programar (ej. límites de notificaciones, permisos revocados)
+  } catch (error) {
+    console.error('Error programando notificación:', error);
     return null;
   }
 };

@@ -13,6 +13,7 @@ import {
   FlexAlignType,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
@@ -999,7 +1000,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             <DateTimePicker
               value={form.dueDate ? new Date(form.dueDate) : new Date()}
               mode="date"
-              display="default"
+              display={Platform.OS === 'android' ? 'spinner' : 'default'}
               onChange={handleDueDateChange}
               minimumDate={new Date()}
             />
@@ -1023,7 +1024,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             <DateTimePicker
               value={form.dueTime ? new Date(`1970-01-01T${form.dueTime}:00`) : new Date()}
               mode="time"
-              display="default"
+              display={Platform.OS === 'android' ? 'spinner' : 'default'}
               onChange={handleDueTimeChange}
               is24Hour={true}
             />
@@ -1047,7 +1048,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             <DateTimePicker
               value={form.reminderDate ? new Date(form.reminderDate) : new Date()}
               mode="date"
-              display="default"
+              display={Platform.OS === 'android' ? 'spinner' : 'default'}
               onChange={handleReminderDateChange}
               minimumDate={new Date()}
             />
@@ -1071,7 +1072,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
             <DateTimePicker
               value={form.reminderTime ? new Date(`1970-01-01T${form.reminderTime}:00`) : new Date()}
               mode="time"
-              display="default"
+              display={Platform.OS === 'android' ? 'spinner' : 'default'}
               onChange={handleReminderTimeChange}
               is24Hour={true}
             />

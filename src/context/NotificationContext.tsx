@@ -9,6 +9,8 @@ export interface NotificationContextType {
   requestPermissions: () => Promise<boolean>;
   /** Establece el estado de permisos (para sincronizar con settings). */
   setHasPermission: (value: boolean) => void;
+  /** Sincroniza el estado con los permisos reales del sistema. */
+  syncPermissions: () => Promise<boolean>;
 }
 
 /** Contexto interno. */
@@ -20,6 +22,18 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
  */
 export const NotificationContextProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [hasPermission, setHasPermission] = useState(false);
+
+  const syncPermissions = async (): Promise<boolean> => {
+    try {
+      const { status } = await Notifications.getPermissionsAsync();
+      const granted = status === 'granted';
+      setHasPermission(granted);
+      return granted;
+    } catch {
+      setHasPermission(false);
+      return false;
+    }
+  };
 
   const requestPermissions = async (): Promise<boolean> => {
     try {
@@ -46,6 +60,7 @@ export const NotificationContextProvider: React.FC<{ children: ReactNode }> = ({
     hasPermission,
     requestPermissions,
     setHasPermission,
+    syncPermissions,
   };
 
   return (
