@@ -7,7 +7,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
-import { Task } from '../types/task';
+import { Task, formatDueDateTime } from '../types/task';
 
 export interface TaskCardProps {
   task: Task;
@@ -50,6 +50,9 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const getCategoryColor = (): string => {
     return mode === 'dark' ? '#7E57C2' : '#5E35B1';
   };
+
+  // Formatear fecha de entrega para mostrar
+  const dueDateTime = formatDueDateTime(task.dueDate, task.dueTime);
 
   const styles = StyleSheet.create({
     card: {
@@ -120,6 +123,16 @@ const TaskCard: React.FC<TaskCardProps> = ({
     categoryBadge: {
       backgroundColor: getCategoryColor(),
     },
+    dueDateBadge: {
+      backgroundColor: mode === 'dark' ? '#1E3A5F' : '#E8F0FE',
+      borderWidth: 1,
+      borderColor: mode === 'dark' ? '#BB86FC' : '#6200EE',
+    },
+    dueDateText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: mode === 'dark' ? '#BB86FC' : '#1A73E8',
+    },
   });
 
   return (
@@ -169,6 +182,11 @@ const TaskCard: React.FC<TaskCardProps> = ({
         </TouchableOpacity>
         <View style={[styles.badge, styles.categoryBadge]}>
           <Text style={styles.badgeText}>{task.categoria.nombre}</Text>
+        </View>
+        {/* Fecha de entrega junto a la categoría */}
+        <View style={[styles.badge, styles.dueDateBadge]}>
+          <Ionicons name="time-outline" size={14} color={mode === 'dark' ? '#BB86FC' : '#1A73E8'} style={{ marginRight: 4 }} />
+          <Text style={styles.dueDateText}>{dueDateTime}</Text>
         </View>
       </View>
     </View>

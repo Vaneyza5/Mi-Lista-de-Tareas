@@ -63,6 +63,7 @@ export const TrashScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
+  const [taskToRestore, setTaskToRestore] = useState<Task | null>(null);
   // Filtros avanzados
   const [selectedFilterField, setSelectedFilterField] = useState<FilterField>('titulo');
   const [filterModalVisible, setFilterModalVisible] = useState(false);
@@ -84,9 +85,9 @@ export const TrashScreen: React.FC = () => {
         case 'descripcion':
           return normalizeForSearch(t.descripcion).includes(q);
         case 'fecha':
-          return normalizeForSearch(t.fecha).includes(q);
+          return normalizeForSearch(t.dueDate).includes(q);
         case 'hora':
-          return normalizeForSearch(t.hora).includes(q);
+          return normalizeForSearch(t.dueTime).includes(q);
         case 'prioridad':
           return normalizeForSearch(t.prioridad).includes(q);
         default:
@@ -129,11 +130,25 @@ export const TrashScreen: React.FC = () => {
   }, []);
 
   const handleRestore = useCallback(
-    async (task: Task) => {
-      await restoreFromTrash(task.id);
+    (task: Task) => {
+      setTaskToRestore(task);
+      setConfirmVisible(true);
     },
-    [restoreFromTrash],
+    [],
   );
+
+  const confirmRestore = useCallback(async () => {
+    if (taskToRestore) {
+      await restoreFromTrash(taskToRestore.id);
+      setTaskToRestore(null);
+      setConfirmVisible(false);
+    }
+  }, [taskToRestore, restoreFromTrash]);
+
+  const cancelRestore = useCallback(() => {
+    setTaskToRestore(null);
+    setConfirmVisible(false);
+  }, []);
 
   const handlePermanentDelete = useCallback(
     async (task: Task) => {
@@ -277,10 +292,25 @@ export const TrashScreen: React.FC = () => {
     />
   );
 
-  const confirmTitle = taskToDelete ? 'Eliminar permanentemente' : 'Vaciar papelera';
-  const confirmMessage = taskToDelete
-    ? `Eliminar definitivamente "${taskToDelete.titulo}"? Esta accion no se puede deshacer.`
-    : `Eliminar permanentemente las ${filteredTasks.length} tarea${filteredTasks.length !== 1 ? 's' : ''} de la papelera? Esta accion no se puede deshacer.`;
+  const isRestore = !!taskToRestore;
+  const isDelete = !!taskToDelete;
+
+  const confirmTitle = isRestore
+    ? 'Restaurar tarea'
+    : isDelete
+    ? 'Eliminar permanentemente'
+    : 'Vaciar papelera';
+
+  const confirmMessage = isRestore
+    ? `¿Restaurar "${taskToRestore?.titulo}"? Volverá a la lista principal.`
+    : isDelete
+    ? `Eliminar definitivamente "${taskToDelete?.titulo}"? Esta acción no se puede deshacer.`
+    : `Eliminar permanentemente las ${filteredTasks.length} tarea${filteredTasks.length !== 1 ? 's' : ''} de la papelera? Esta acción no se puede deshacer.`;
+
+  const confirmText = isRestore ? 'Restaurar' : isDelete ? 'Eliminar' : 'Vaciar';
+  const onConfirmAction = isRestore ? confirmRestore : isDelete ? confirmPermanentDelete : confirmEmptyTrash;
+  const onCancelAction = isRestore ? cancelRestore : cancelPermanentDelete;
+  const isDestructive = !isRestore; // Restaurar no es destructivo
 
   return (
     <SafeAreaView style={styles.container}>
@@ -362,10 +392,10 @@ export const TrashScreen: React.FC = () => {
         visible={confirmVisible}
         title={confirmTitle}
         message={confirmMessage}
-        onConfirm={taskToDelete ? confirmPermanentDelete : confirmEmptyTrash}
-        onCancel={cancelPermanentDelete}
-        confirmText={taskToDelete ? 'Eliminar' : 'Vaciar'}
-        isDestructive={true}
+        onConfirm={onConfirmAction}
+        onCancel={onCancelAction}
+        confirmText={confirmText}
+        isDestructive={isDestructive}
         testID="trash-confirm-modal"
       />
 

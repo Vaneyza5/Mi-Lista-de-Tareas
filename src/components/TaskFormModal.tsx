@@ -39,8 +39,10 @@ interface FormField {
   descripcion: string;
   prioridad: Priority;
   estado: TaskStatus;
-  fecha: string;
-  hora: string;
+  dueDate: string;
+  dueTime: string;
+  reminderDate?: string;
+  reminderTime?: string;
   categoriaId: string;
   categoriaNombre: string;
 }
@@ -49,9 +51,10 @@ const PRIORITIES: Priority[] = ['Alta', 'Media', 'Baja'];
 const STATUSES: TaskStatus[] = ['Pendiente', 'En curso', 'Listo', 'Cancelado'];
 
 const todayISO = (): string => new Date().toISOString().split('T')[0];
-const nowTime = (): string => {
+const tomorrowISO = (): string => {
   const d = new Date();
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().split('T')[0];
 };
 
 export const TaskFormModal: React.FC<TaskFormModalProps> = ({
@@ -70,8 +73,10 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
     descripcion: '',
     prioridad: 'Media',
     estado: 'Pendiente',
-    fecha: todayISO(),
-    hora: nowTime(),
+    dueDate: tomorrowISO(),
+    dueTime: '09:00',
+    reminderDate: todayISO(),
+    reminderTime: '08:00',
     categoriaId: categories[0]?.id ?? 'cat_personal',
     categoriaNombre: categories[0]?.nombre ?? 'Personal',
   });
@@ -80,10 +85,12 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
-  const [categoryExpanded, setCategoryExpanded] = useState(true); // Expandido por defecto
+  const [categoryExpanded, setCategoryExpanded] = useState(true);
   // Date/Time pickers
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showDueDatePicker, setShowDueDatePicker] = useState(false);
+  const [showDueTimePicker, setShowDueTimePicker] = useState(false);
+  const [showReminderDatePicker, setShowReminderDatePicker] = useState(false);
+  const [showReminderTimePicker, setShowReminderTimePicker] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const initializedRef = useRef(false);
 
@@ -103,8 +110,10 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         descripcion: initialTask.descripcion,
         prioridad: initialTask.prioridad,
         estado: initialTask.estado,
-        fecha: initialTask.fecha,
-        hora: initialTask.hora,
+        dueDate: initialTask.dueDate,
+        dueTime: initialTask.dueTime,
+        reminderDate: initialTask.reminderDate ?? todayISO(),
+        reminderTime: initialTask.reminderTime ?? '08:00',
         categoriaId: initialTask.categoria.id,
         categoriaNombre: initialTask.categoria.nombre,
       });
@@ -115,8 +124,10 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         descripcion: '',
         prioridad: 'Media',
         estado: 'Pendiente',
-        fecha: todayISO(),
-        hora: nowTime(),
+        dueDate: tomorrowISO(),
+        dueTime: '09:00',
+        reminderDate: todayISO(),
+        reminderTime: '08:00',
         categoriaId: categories[0]?.id ?? 'cat_personal',
         categoriaNombre: categories[0]?.nombre ?? 'Personal',
       });
@@ -141,6 +152,16 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       newErrors.categoriaId = 'Selecciona una categoría';
     }
 
+    // Validar que la fecha de recordatorio no sea posterior a la de entrega
+    if (form.reminderDate && form.reminderTime && form.dueDate && form.dueTime) {
+      const reminder = new Date(`${form.reminderDate}T${form.reminderTime}`);
+      const due = new Date(`${form.dueDate}T${form.dueTime}`);
+      if (reminder > due) {
+        newErrors.reminderDate = 'El recordatorio debe ser anterior a la entrega';
+        newErrors.reminderTime = 'El recordatorio debe ser anterior a la entrega';
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }, [form]);
@@ -156,8 +177,10 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         descripcion: form.descripcion.trim(),
         prioridad: form.prioridad,
         estado: form.estado,
-        fecha: form.fecha,
-        hora: form.hora,
+        dueDate: form.dueDate,
+        dueTime: form.dueTime,
+        reminderDate: form.reminderDate || undefined,
+        reminderTime: form.reminderTime || undefined,
         categoria: { id: form.categoriaId, nombre: form.categoriaNombre },
         inTrash: false,
       };
@@ -191,7 +214,7 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   const handleAddCategory = useCallback(async () => {
     const trimmedName = newCategoryName.trim();
     if (!trimmedName) return;
-    
+
     try {
       const newCategory = await addCategory(trimmedName);
       updateField('categoriaId', newCategory.id);
@@ -204,27 +227,48 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
   }, [addCategory, newCategoryName, updateField]);
 
   // Date/Time picker handlers
-  const handleDateChange = useCallback((event: any, date?: Date) => {
+  const handleDueDateChange = useCallback((event: any, date?: Date) => {
     if (date) {
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
-      updateField('fecha', `${year}-${month}-${day}`);
+      updateField('dueDate', `${year}-${month}-${day}`);
     }
-    setShowDatePicker(false);
+    setShowDueDatePicker(false);
   }, [updateField]);
 
-  const handleTimeChange = useCallback((event: any, date?: Date) => {
+  const handleDueTimeChange = useCallback((event: any, date?: Date) => {
     if (date) {
       const hours = String(date.getHours()).padStart(2, '0');
       const minutes = String(date.getMinutes()).padStart(2, '0');
-      updateField('hora', `${hours}:${minutes}`);
+      updateField('dueTime', `${hours}:${minutes}`);
     }
-    setShowTimePicker(false);
+    setShowDueTimePicker(false);
   }, [updateField]);
 
-  const openDatePicker = useCallback(() => setShowDatePicker(true), []);
-  const openTimePicker = useCallback(() => setShowTimePicker(true), []);
+  const handleReminderDateChange = useCallback((event: any, date?: Date) => {
+    if (date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      updateField('reminderDate', `${year}-${month}-${day}`);
+    }
+    setShowReminderDatePicker(false);
+  }, [updateField]);
+
+  const handleReminderTimeChange = useCallback((event: any, date?: Date) => {
+    if (date) {
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      updateField('reminderTime', `${hours}:${minutes}`);
+    }
+    setShowReminderTimePicker(false);
+  }, [updateField]);
+
+  const openDueDatePicker = useCallback(() => setShowDueDatePicker(true), []);
+  const openDueTimePicker = useCallback(() => setShowDueTimePicker(true), []);
+  const openReminderDatePicker = useCallback(() => setShowReminderDatePicker(true), []);
+  const openReminderTimePicker = useCallback(() => setShowReminderTimePicker(true), []);
 
   if (!visible) return null;
 
@@ -414,6 +458,11 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       color: mode === 'dark' ? '#FFFFFF' : '#000000',
       flex: 1,
     },
+    inputTextDisabled: {
+      fontSize: 16,
+      color: mode === 'dark' ? '#888888' : '#999999',
+      flex: 1,
+    },
     reminderPreview: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -441,6 +490,17 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
       fontSize: 14,
       fontWeight: '700',
       color: mode === 'dark' ? '#E8E8E8' : '#1A1A1A',
+    },
+    disabledFieldOverlay: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'transparent',
+    },
+    lockIcon: {
+      marginLeft: 8,
     },
   });
 
@@ -775,48 +835,112 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
               {renderStatusPicker()}
             </View>
 
-            {/* Fecha y Hora */}
+            {/* Fecha y Hora de ENTREGA (inmutable si editando) */}
             <View style={styles.fieldGroup}>
               <View style={styles.row}>
                 <View style={styles.half}>
-                  <Text style={styles.label}>Fecha</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Text style={styles.label}>Fecha de entrega *</Text>
+                    {isEditing && <Ionicons name="lock-closed-outline" size={18} color={mode === 'dark' ? '#888888' : '#999999'} style={styles.lockIcon} />}
+                  </View>
                   <Pressable
-                    onPress={openDatePicker}
-                    style={[styles.input, styles.inputPressable]}
-                    testID={`${testID}-fecha`}
-                    accessibilityLabel="Fecha programada"
+                    onPress={isEditing ? undefined : openDueDatePicker}
+                    style={[
+                      styles.input,
+                      styles.inputPressable,
+                      isEditing && { opacity: 0.7 },
+                    ]}
+                    testID={`${testID}-due-date`}
+                    accessibilityLabel={isEditing ? 'Fecha de entrega (no editable)' : 'Fecha de entrega'}
+                    disabled={isEditing}
                   >
-                    <Text style={styles.inputText}>{form.fecha}</Text>
+                    <Text style={isEditing ? styles.inputTextDisabled : styles.inputText}>
+                      {form.dueDate}
+                    </Text>
+                    {!isEditing && <Ionicons name="calendar-outline" size={22} color={mode === 'dark' ? '#BB86FC' : '#6200EE'} />}
                   </Pressable>
                 </View>
                 <View style={styles.half}>
-                  <Text style={styles.label}>Hora</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Text style={styles.label}>Hora de entrega *</Text>
+                    {isEditing && <Ionicons name="lock-closed-outline" size={18} color={mode === 'dark' ? '#888888' : '#999999'} style={styles.lockIcon} />}
+                  </View>
                   <Pressable
-                    onPress={openTimePicker}
-                    style={[styles.input, styles.inputPressable]}
-                    testID={`${testID}-hora`}
-                    accessibilityLabel="Hora programada"
+                    onPress={isEditing ? undefined : openDueTimePicker}
+                    style={[
+                      styles.input,
+                      styles.inputPressable,
+                      isEditing && { opacity: 0.7 },
+                    ]}
+                    testID={`${testID}-due-time`}
+                    accessibilityLabel={isEditing ? 'Hora de entrega (no editable)' : 'Hora de entrega'}
+                    disabled={isEditing}
                   >
-                    <Text style={styles.inputText}>{form.hora}</Text>
+                    <Text style={isEditing ? styles.inputTextDisabled : styles.inputText}>
+                      {form.dueTime}
+                    </Text>
+                    {!isEditing && <Ionicons name="time-outline" size={22} color={mode === 'dark' ? '#BB86FC' : '#6200EE'} />}
                   </Pressable>
                 </View>
               </View>
+              {isEditing && (
+                <Text style={{ marginTop: 6, fontSize: 12, color: mode === 'dark' ? '#888888' : '#999999' }}>
+                  La fecha y hora de entrega no se pueden modificar tras crear la tarea
+                </Text>
+              )}
             </View>
 
-              {/* Preview de recordatorio */}
-              {(form.estado === 'Pendiente' || form.estado === 'En curso') && form.fecha && form.hora && (
+            {/* Fecha y Hora de RECORDATORIO (editable siempre) */}
+            <View style={styles.fieldGroup}>
+              <View style={styles.row}>
+                <View style={styles.half}>
+                  <Text style={styles.label}>Fecha de recordatorio (opcional)</Text>
+                  <Pressable
+                    onPress={openReminderDatePicker}
+                    style={[styles.input, styles.inputPressable]}
+                    testID={`${testID}-reminder-date`}
+                    accessibilityLabel="Fecha de recordatorio"
+                  >
+                    <Text style={styles.inputText}>
+                      {form.reminderDate || 'Seleccionar'}
+                    </Text>
+                    <Ionicons name={form.reminderDate ? 'calendar-outline' : 'calendar-outline'} size={22} color={mode === 'dark' ? '#BB86FC' : '#6200EE'} />
+                  </Pressable>
+                </View>
+                <View style={styles.half}>
+                  <Text style={styles.label}>Hora de recordatorio (opcional)</Text>
+                  <Pressable
+                    onPress={openReminderTimePicker}
+                    style={[styles.input, styles.inputPressable]}
+                    testID={`${testID}-reminder-time`}
+                    accessibilityLabel="Hora de recordatorio"
+                  >
+                    <Text style={styles.inputText}>
+                      {form.reminderTime || 'Seleccionar'}
+                    </Text>
+                    <Ionicons name={form.reminderTime ? 'time-outline' : 'time-outline'} size={22} color={mode === 'dark' ? '#BB86FC' : '#6200EE'} />
+                  </Pressable>
+                </View>
+              </View>
+              {(errors.reminderDate || errors.reminderTime) && (
+                <Text style={styles.errorText}>
+                  {errors.reminderDate || errors.reminderTime}
+                </Text>
+              )}
+              {(form.reminderDate && form.reminderTime) && (
                 <View style={styles.reminderPreview}>
                   <View style={styles.reminderPreviewIcon}>
                     <Ionicons name="notifications-circle-outline" size={22} color={mode === 'dark' ? '#BB86FC' : '#6200EE'} />
                   </View>
                   <View style={styles.reminderPreviewContent}>
-                    <Text style={styles.reminderPreviewTitle}>Se programará recordatorio</Text>
+                    <Text style={styles.reminderPreviewTitle}>Recordatorio programado</Text>
                     <Text style={styles.reminderPreviewTime}>
-                      {form.fecha.split('-').reverse().join('/')} a las {form.hora}
+                      {form.reminderDate.split('-').reverse().join('/')} a las {form.reminderTime}
                     </Text>
                   </View>
                 </View>
               )}
+            </View>
 
             {/* Categoría */}
             <View style={styles.fieldGroup}>
@@ -865,22 +989,22 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         </Pressable>
       </Pressable>
 
-      {/* Date Picker Modal */}
-      <Modal visible={showDatePicker} animationType="slide" transparent onRequestClose={() => setShowDatePicker(false)}>
+      {/* Due Date Picker Modal */}
+      <Modal visible={showDueDatePicker} animationType="slide" transparent onRequestClose={() => setShowDueDatePicker(false)}>
         <View style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <View style={{ backgroundColor: mode === 'dark' ? '#1E1E1E' : '#FFFFFF', borderRadius: 16, margin: 16, padding: 16 }}>
             <Text style={{ fontSize: 18, fontWeight: '600', color: mode === 'dark' ? '#FFFFFF' : '#000000', marginBottom: 16 }}>
-              Seleccionar fecha
+              Seleccionar fecha de entrega
             </Text>
             <DateTimePicker
-              value={form.fecha ? new Date(form.fecha) : new Date()}
+              value={form.dueDate ? new Date(form.dueDate) : new Date()}
               mode="date"
               display="default"
-              onChange={handleDateChange}
+              onChange={handleDueDateChange}
               minimumDate={new Date()}
             />
             <Pressable
-              onPress={() => setShowDatePicker(false)}
+              onPress={() => setShowDueDatePicker(false)}
               style={{ marginTop: 16, paddingVertical: 12, borderRadius: 8, backgroundColor: mode === 'dark' ? '#BB86FC' : '#6200EE', alignItems: 'center' }}
             >
               <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Listo</Text>
@@ -889,22 +1013,70 @@ export const TaskFormModal: React.FC<TaskFormModalProps> = ({
         </View>
       </Modal>
 
-      {/* Time Picker Modal */}
-      <Modal visible={showTimePicker} animationType="slide" transparent onRequestClose={() => setShowTimePicker(false)}>
+      {/* Due Time Picker Modal */}
+      <Modal visible={showDueTimePicker} animationType="slide" transparent onRequestClose={() => setShowDueTimePicker(false)}>
         <View style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <View style={{ backgroundColor: mode === 'dark' ? '#1E1E1E' : '#FFFFFF', borderRadius: 16, margin: 16, padding: 16 }}>
             <Text style={{ fontSize: 18, fontWeight: '600', color: mode === 'dark' ? '#FFFFFF' : '#000000', marginBottom: 16 }}>
-              Seleccionar hora
+              Seleccionar hora de entrega
             </Text>
             <DateTimePicker
-              value={form.hora ? new Date(`1970-01-01T${form.hora}:00`) : new Date()}
+              value={form.dueTime ? new Date(`1970-01-01T${form.dueTime}:00`) : new Date()}
               mode="time"
               display="default"
-              onChange={handleTimeChange}
+              onChange={handleDueTimeChange}
               is24Hour={true}
             />
             <Pressable
-              onPress={() => setShowTimePicker(false)}
+              onPress={() => setShowDueTimePicker(false)}
+              style={{ marginTop: 16, paddingVertical: 12, borderRadius: 8, backgroundColor: mode === 'dark' ? '#BB86FC' : '#6200EE', alignItems: 'center' }}
+            >
+              <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Listo</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Reminder Date Picker Modal */}
+      <Modal visible={showReminderDatePicker} animationType="slide" transparent onRequestClose={() => setShowReminderDatePicker(false)}>
+        <View style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <View style={{ backgroundColor: mode === 'dark' ? '#1E1E1E' : '#FFFFFF', borderRadius: 16, margin: 16, padding: 16 }}>
+            <Text style={{ fontSize: 18, fontWeight: '600', color: mode === 'dark' ? '#FFFFFF' : '#000000', marginBottom: 16 }}>
+              Seleccionar fecha de recordatorio
+            </Text>
+            <DateTimePicker
+              value={form.reminderDate ? new Date(form.reminderDate) : new Date()}
+              mode="date"
+              display="default"
+              onChange={handleReminderDateChange}
+              minimumDate={new Date()}
+            />
+            <Pressable
+              onPress={() => setShowReminderDatePicker(false)}
+              style={{ marginTop: 16, paddingVertical: 12, borderRadius: 8, backgroundColor: mode === 'dark' ? '#BB86FC' : '#6200EE', alignItems: 'center' }}
+            >
+              <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Listo</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Reminder Time Picker Modal */}
+      <Modal visible={showReminderTimePicker} animationType="slide" transparent onRequestClose={() => setShowReminderTimePicker(false)}>
+        <View style={{ flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <View style={{ backgroundColor: mode === 'dark' ? '#1E1E1E' : '#FFFFFF', borderRadius: 16, margin: 16, padding: 16 }}>
+            <Text style={{ fontSize: 18, fontWeight: '600', color: mode === 'dark' ? '#FFFFFF' : '#000000', marginBottom: 16 }}>
+              Seleccionar hora de recordatorio
+            </Text>
+            <DateTimePicker
+              value={form.reminderTime ? new Date(`1970-01-01T${form.reminderTime}:00`) : new Date()}
+              mode="time"
+              display="default"
+              onChange={handleReminderTimeChange}
+              is24Hour={true}
+            />
+            <Pressable
+              onPress={() => setShowReminderTimePicker(false)}
               style={{ marginTop: 16, paddingVertical: 12, borderRadius: 8, backgroundColor: mode === 'dark' ? '#BB86FC' : '#6200EE', alignItems: 'center' }}
             >
               <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Listo</Text>

@@ -1,6 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-import { Task } from '../types/task';
+import { Task, getReminderDateTime } from '../types/task';
 
 /**
  * Configura el comportamiento de las notificaciones en primer plano.
@@ -64,47 +64,9 @@ export const requestNotificationPermissions = async (): Promise<boolean> => {
 };
 
 /**
- * Convierte fecha (YYYY-MM-DD) y hora (HH:mm) a Date object.
- * @returns Date object o null si los valores son inválidos.
- */
-const parseDateTime = (fecha: string, hora: string): Date | null => {
-  try {
-    const [year, month, day] = fecha.split('-').map(Number);
-    const [hours, minutes] = hora.split(':').map(Number);
-
-    if (
-      !year || !month || !day ||
-      hours === undefined || minutes === undefined ||
-      month < 1 || month > 12 ||
-      day < 1 || day > 31 ||
-      hours < 0 || hours > 23 ||
-      minutes < 0 || minutes > 59
-    ) {
-      return null;
-    }
-
-    // Mes en JS es 0-indexed
-    const date = new Date(year, month - 1, day, hours, minutes, 0, 0);
-
-    // Verificar que la fecha es válida (no 31 de febrero, etc.)
-    if (
-      date.getFullYear() !== year ||
-      date.getMonth() !== month - 1 ||
-      date.getDate() !== day
-    ) {
-      return null;
-    }
-
-    return date;
-  } catch {
-    return null;
-  }
-};
-
-/**
- * Programa una notificación nativa para una tarea.
+ * Programa una notificación nativa para una tarea usando la fecha de RECORDATORIO.
  * FUNCIONA EN SEGUNDO PLANO (incluso con la app cerrada) en development build / standalone.
- * @param task - Tarea con fecha, hora y título.
+ * @param task - Tarea con reminderDate, reminderTime y título.
  * @returns ID de la notificación programada (string) o null si falló/no procede.
  */
 export const scheduleTaskNotification = async (task: Task): Promise<string | null> => {
@@ -115,9 +77,10 @@ export const scheduleTaskNotification = async (task: Task): Promise<string | nul
       return null;
     }
 
-    const triggerDate = parseDateTime(task.fecha, task.hora);
+    // Usar fecha/hora de RECORDATORIO (no de entrega)
+    const triggerDate = getReminderDateTime(task);
     if (!triggerDate) {
-      return null;
+      return null; // No hay recordatorio configurado
     }
 
     const now = new Date();

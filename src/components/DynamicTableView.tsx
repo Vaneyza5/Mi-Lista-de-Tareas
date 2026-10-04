@@ -173,16 +173,18 @@ export const DynamicTableView: React.FC<DynamicTableViewProps> = ({
               color: mode === 'dark' ? '#BBBBBB' : '#555555',
             }}
           >
-            📅 {task.fecha}
+            📅 Entrega: {task.dueDate} {task.dueTime}
           </Text>
-          <Text
-            style={{
-              fontSize: 12,
-              color: mode === 'dark' ? '#BBBBBB' : '#555555',
-            }}
-          >
-            🕐 {task.hora}
-          </Text>
+          {task.reminderDate && task.reminderTime && (
+            <Text
+              style={{
+                fontSize: 11,
+                color: mode === 'dark' ? '#BB86FC' : '#6200EE',
+              }}
+            >
+              🔔 Recordatorio: {task.reminderDate} {task.reminderTime}
+            </Text>
+          )}
         </View>
       ),
     },

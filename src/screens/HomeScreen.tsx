@@ -92,9 +92,9 @@ export const HomeScreen: React.FC = () => {
         case 'descripcion':
           return normalizeForSearch(t.descripcion).includes(q);
         case 'fecha':
-          return normalizeForSearch(t.fecha).includes(q);
+          return normalizeForSearch(t.dueDate).includes(q);
         case 'hora':
-          return normalizeForSearch(t.hora).includes(q);
+          return normalizeForSearch(t.dueTime).includes(q);
         case 'prioridad':
           return normalizeForSearch(t.prioridad).includes(q);
         default:
@@ -109,8 +109,8 @@ export const HomeScreen: React.FC = () => {
     switch (settings.sortOrder) {
       case 'fecha':
         return tasks.sort((a, b) => {
-          const dateA = `${a.fecha}T${a.hora}`;
-          const dateB = `${b.fecha}T${b.hora}`;
+          const dateA = `${a.dueDate}T${a.dueTime}`;
+          const dateB = `${b.dueDate}T${b.dueTime}`;
           return dateA.localeCompare(dateB);
         });
       case 'nombre':

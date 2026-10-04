@@ -120,27 +120,6 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     };
   }, []);
 
-  // --- Helpers de notificaciones (DESHABILITADOS para Expo Go) ---
-  // Para habilitar: descomentar imports y reemplazar estas funciones con la lógica real
-
-  /**
-   * Cancela notificación de una tarea (NO-OP: notificaciones deshabilitadas).
-   */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _cancelNotificationForTask = useCallback(async (_id: string): Promise<void> => {
-    // NO-OP: notificaciones deshabilitadas para Expo Go
-    // Para habilitar: descomentar import cancelTaskNotification y lógica
-  }, []);
-
-  /**
-   * Programa notificación para una tarea (NO-OP: notificaciones deshabilitadas).
-   */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _scheduleNotificationForTask = useCallback(async (_id: string): Promise<void> => {
-    // NO-OP: notificaciones deshabilitadas para Expo Go
-    // Para habilitar: descomentar import scheduleTaskNotification y lógica
-  }, []);
-
   // --- CRUD Tareas ---
 
   const addTask = useCallback(
@@ -177,15 +156,20 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
       const task = tasks.find((t) => t.id === id);
       if (!task) return;
 
-      const mergedTask = { ...task, ...updates };
+      // dueDate y dueTime son INMUTABLES - no permitir su modificación
+      const { dueDate, dueTime, ...allowedUpdates } = updates;
+
+      const mergedTask = { ...task, ...allowedUpdates };
 
       // Manejar notificaciones ANTES de actualizar el estado
-      const statusChangedToDone = updates.estado === 'Listo' || updates.estado === 'Cancelado';
-      const movedToTrash = updates.inTrash === true && task.inTrash === false;
-      const restoredFromTrash = updates.inTrash === false && task.inTrash === true;
-      const dateTimeChanged = (updates.fecha && updates.fecha !== task.fecha) || (updates.hora && updates.hora !== task.hora);
-      const statusChangedToActive = (updates.estado === 'Pendiente' || updates.estado === 'En curso') && 
-                                    task.estado !== 'Pendiente' && task.estado !== 'En curso';
+      const statusChangedToDone = allowedUpdates.estado === 'Listo' || allowedUpdates.estado === 'Cancelado';
+      const movedToTrash = allowedUpdates.inTrash === true && task.inTrash === false;
+      const restoredFromTrash = allowedUpdates.inTrash === false && task.inTrash === true;
+      // Verificar si cambió reminderDate o reminderTime
+      const reminderChanged = (allowedUpdates.reminderDate !== undefined && allowedUpdates.reminderDate !== task.reminderDate) ||
+                              (allowedUpdates.reminderTime !== undefined && allowedUpdates.reminderTime !== task.reminderTime);
+      const statusChangedToActive = (allowedUpdates.estado === 'Pendiente' || allowedUpdates.estado === 'En curso') && 
+                                      task.estado !== 'Pendiente' && task.estado !== 'En curso';
 
       let finalNotificationId = task.notificationId;
 
@@ -194,7 +178,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
           await cancelTaskNotification(task.notificationId);
         }
         finalNotificationId = undefined;
-      } else if (restoredFromTrash || dateTimeChanged || statusChangedToActive) {
+      } else if (restoredFromTrash || reminderChanged || statusChangedToActive) {
         if (task.notificationId) {
           await cancelTaskNotification(task.notificationId);
         }
