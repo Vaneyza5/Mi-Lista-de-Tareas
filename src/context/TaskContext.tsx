@@ -66,10 +66,10 @@ export interface TaskProviderProps {
 
 /**
  * Proveedor global de tareas y categorías con persistencia en AsyncStorage.
- * - Carga datos al montar.
- * - Persiste cambios tras cada mutación.
- * - Expone API CRUD completa con soft-delete (papelera).
- * - Notificaciones nativas: funcionan en background en development build / standalone.
+ *  Carga datos al montar.
+ *  Persiste cambios tras cada mutación.
+ *  Expone API CRUD completa con soft-delete (papelera).
+ * Notificaciones nativas: funcionan en background en development build / standalone.
  *   En Expo Go: solo funcionan en foreground.
  * Requiere development build: npx expo run:android / npx expo run:ios
  */
@@ -288,7 +288,7 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     [tasks],
   );
 
-  // --- CRUD Categorías ---
+  // CRUD Categorías
 
   const addCategory = useCallback(
     async (nombre: string): Promise<Category> => {
